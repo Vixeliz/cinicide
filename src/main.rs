@@ -1,7 +1,7 @@
 use easy_gltf::model::Mode;
 use ggez::graphics::{
-    Camera3dBundle, Canvas3d, DrawParam, DrawParam3d, ImageFormat, Mesh3d, Mesh3dBuilder, Rect,
-    Sampler, Vertex3d,
+    Aabb, Camera3dBundle, Canvas3d, DrawParam, DrawParam3d, ImageFormat, Mesh3d, Mesh3dBuilder,
+    Rect, Sampler, Transform3d, Vertex3d,
 };
 use ggez::graphics::{Image, Shader};
 use ggez::input::keyboard::KeyCode;
@@ -12,12 +12,42 @@ use ggez::{
     Context, GameResult,
 };
 use image::EncodableLayout;
-use mint::Quaternion;
 use std::{env, path};
+
+struct Model {
+    center: Option<Vec3>,
+    rotation: Quat,
+    transform: Transform3d,
+    meshes: Vec<Mesh3d>,
+}
+impl Model {
+    pub fn to_aabb(&self) -> Option<Aabb> {
+        let mut minimum = Vec3::MAX;
+        let mut maximum = Vec3::MIN;
+        for mesh in self.meshes.iter() {
+            for p in mesh.vertices.iter() {
+                minimum = minimum.min(Vec3::from_array(p.pos));
+                maximum = maximum.max(Vec3::from_array(p.pos));
+            }
+            if minimum.x != std::f32::MAX
+                && minimum.y != std::f32::MAX
+                && minimum.z != std::f32::MAX
+                && maximum.x != std::f32::MIN
+                && maximum.y != std::f32::MIN
+                && maximum.z != std::f32::MIN
+            {
+                return Some(Aabb::from_min_max(minimum, maximum));
+            } else {
+                return None;
+            }
+        }
+        None
+    }
+}
 
 struct MainState {
     camera: Camera3dBundle,
-    meshes: Vec<Mesh3d>,
+    models: Vec<Model>,
     psx: bool,
     psx_shader: Shader,
     custom_shader: Shader,
@@ -66,8 +96,17 @@ impl MainState {
             }
         }
 
-        Ok(MainState {
+        let mut cincide_model = Model {
+            center: None,
+            rotation: Quat::IDENTITY,
+            transform: Transform3d::default(),
             meshes,
+        };
+
+        cincide_model.center = Some(cincide_model.to_aabb().unwrap().center.into());
+
+        Ok(MainState {
+            models: vec![cincide_model],
             camera,
             custom_shader: graphics::ShaderBuilder::from_path("/fancy.wgsl")
                 .build(&ctx.gfx)
@@ -90,7 +129,7 @@ impl event::EventHandler for MainState {
         let dt = ctx.time.delta().as_secs_f32();
         let forward = Vec3::new(yaw_cos, 0.0, yaw_sin).normalize() * 15.0 * dt;
         let right = Vec3::new(-yaw_sin, 0.0, yaw_cos).normalize() * 15.0 * dt;
-        self.rotation += 10.0 * dt;
+        self.rotation += 2.5 * dt;
         // if k_ctx.is_key_pressed(KeyCode::Q) {
         //     self.meshes[0].1 += 1.0 * dt;
         // }
@@ -144,8 +183,17 @@ impl event::EventHandler for MainState {
         } else {
             canvas3d.set_shader(self.custom_shader.clone());
         }
-        for mesh in self.meshes.iter() {
-            canvas3d.draw(ctx, mesh.clone(), DrawParam3d::default());
+        for model in self.models.iter() {
+            for mesh in model.meshes.iter() {
+                canvas3d.draw(
+                    ctx,
+                    mesh.clone(),
+                    DrawParam3d::default()
+                        .pivot(model.center.unwrap() + Vec3::from(model.transform.position))
+                        .transform(model.transform)
+                        .rotation(Quat::from_euler(EulerRot::YZX, self.rotation, 0.0, 0.0)),
+                );
+            }
         }
         canvas3d.finish(ctx)?;
         let mut canvas = graphics::Canvas::from_frame(ctx, None);
