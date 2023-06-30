@@ -1,0 +1,15 @@
+[package]
+name = "cinicide"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ggez = { git = "https://github.com/vixeliz/ggez", branch = "devel" }
+mint = "0.5.9"
+ahash = "0.8.3"
+tobj = "4.0.0"
+gltf = "1.2.0"
+easy-gltf = "1.0.0"
+image = "0.24.6"
