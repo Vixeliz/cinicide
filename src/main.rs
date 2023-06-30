@@ -61,7 +61,7 @@ impl MainState {
         camera.camera.pitch = 0.0;
         camera.projection.zfar = 1000.0;
         let mut meshes = Vec::default();
-        let path = ctx.fs.resources_dir().join("cinicide_gun.glb");
+        let path = ctx.fs.resources_dir().join("tree_gun.glb");
         println!("{:?}", path);
         let scenes = easy_gltf::load(path).expect("Failed to load glTF");
 
