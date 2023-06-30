@@ -100,6 +100,7 @@ struct MainState {
     psx: bool,
     psx_shader: Shader,
     custom_shader: Shader,
+    skybox: Model,
 }
 
 impl MainState {
@@ -110,6 +111,7 @@ impl MainState {
         camera.projection.zfar = 1000.0;
         let mut tree_gun = Model::from_path("tree_gun.glb".into(), ctx)?;
         let mut cin_gun = Model::from_path("cinicide_gun.glb".into(), ctx)?;
+        let mut skybox = Model::from_path("skybox.glb".into(), ctx)?;
         cin_gun.transform = Transform3d {
             position: Vec3::new(10.0, 5.0, -10.0).into(),
             rotation: Quat::IDENTITY.into(),
@@ -122,9 +124,16 @@ impl MainState {
             scale: Vec3::splat(3.0).into(),
         };
 
+        skybox.transform = Transform3d {
+            position: Vec3::ZERO.into(),
+            rotation: Quat::IDENTITY.into(),
+            scale: Vec3::splat(100.0).into(),
+        };
+
         Ok(MainState {
             models: vec![cin_gun],
             no_view_models: vec![tree_gun],
+            skybox,
             camera,
             custom_shader: graphics::ShaderBuilder::from_path("/fancy.wgsl")
                 .build(&ctx.gfx)
@@ -190,9 +199,27 @@ impl event::EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
+        let sky_image = Image::new_canvas_image(ctx, ImageFormat::Bgra8UnormSrgb, 320, 240, 1);
+        let mut sky_cam = self.camera;
+        sky_cam.camera.position = Vec3::ZERO;
+        let mut canvas3d = Canvas3d::from_image(ctx, &mut sky_cam, sky_image.clone(), Color::BLACK);
+        canvas3d.set_sampler(Sampler::nearest_clamp());
+        canvas3d.set_shader(self.custom_shader.clone());
+        canvas3d.draw(
+            ctx,
+            self.skybox.meshes[0].clone(),
+            DrawParam3d::default()
+                .offset(self.skybox.center.unwrap())
+                .transform(self.skybox.transform),
+        );
+        canvas3d.finish(ctx)?;
         let canvas_image = Image::new_canvas_image(ctx, ImageFormat::Bgra8UnormSrgb, 320, 240, 1);
-        let mut canvas3d =
-            Canvas3d::from_image(ctx, &mut self.camera, canvas_image.clone(), Color::BLACK);
+        let mut canvas3d = Canvas3d::from_image(
+            ctx,
+            &mut self.camera,
+            canvas_image.clone(),
+            Color::new(0.0, 0.0, 0.0, 0.0),
+        );
         canvas3d.set_sampler(Sampler::nearest_clamp());
         if self.psx {
             canvas3d.set_shader(self.psx_shader.clone());
@@ -248,6 +275,7 @@ impl event::EventHandler for MainState {
             ctx.gfx.drawable_size().0 / 320.0,
             ctx.gfx.drawable_size().1 / 240.0,
         ));
+        canvas.draw(&sky_image, params);
         canvas.draw(&canvas_image, params);
         canvas.draw(&canvas_image_two, params);
         let dest_point1 = Vec2::new(10.0, 210.0);
