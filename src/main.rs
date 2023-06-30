@@ -1,7 +1,6 @@
-use easy_gltf::model::Mode;
 use ggez::graphics::{
     Aabb, Camera3dBundle, Canvas3d, DrawParam, DrawParam3d, ImageFormat, Mesh3d, Mesh3dBuilder,
-    Rect, Sampler, Transform3d, Vertex3d,
+    Sampler, Transform3d, Vertex3d,
 };
 use ggez::graphics::{Image, Shader};
 use ggez::input::keyboard::KeyCode;
@@ -12,15 +11,65 @@ use ggez::{
     Context, GameResult,
 };
 use image::EncodableLayout;
+use std::path::PathBuf;
 use std::{env, path};
 
-struct Model {
+pub struct Model {
     center: Option<Vec3>,
-    rotation: Quat,
     transform: Transform3d,
     meshes: Vec<Mesh3d>,
 }
 impl Model {
+    pub fn from_path(path: PathBuf, ctx: &mut Context) -> GameResult<Self> {
+        let path = ctx.fs.resources_dir().join(path);
+        let mut meshes = Vec::default();
+        if let Ok(scenes) = easy_gltf::load(path) {
+            for scene in scenes {
+                for model in scene.models {
+                    if let Some(base_color_texture) =
+                        model.material().pbr.base_color_texture.clone()
+                    {
+                        let image = Image::from_pixels(
+                            ctx,
+                            base_color_texture.as_bytes(),
+                            ImageFormat::Rgba8UnormSrgb,
+                            base_color_texture.width(),
+                            base_color_texture.height(),
+                        );
+                        let vertices = model
+                            .vertices()
+                            .iter()
+                            .map(|x| {
+                                let pos = Vec3::new(x.position.x, x.position.y, x.position.z);
+                                let uv = Vec2::new(x.tex_coords.x, x.tex_coords.y);
+                                Vertex3d::new(pos, uv, Color::new(1.0, 1.0, 1.0, 0.0))
+                            })
+                            .collect();
+                        let indices = model.indices();
+                        if let Some(indices) = indices.as_ref() {
+                            let indices = indices.iter().map(|x| *x as u32).collect();
+                            let mesh = Mesh3dBuilder::new()
+                                .from_data(vertices, indices, Some(image))
+                                .build(ctx);
+                            meshes.push(mesh);
+                        }
+                    }
+                }
+            }
+
+            let mut model = Model {
+                center: None,
+                transform: Transform3d::default(),
+                meshes,
+            };
+
+            model.center = Some(model.to_aabb().unwrap().center.into());
+            return Ok(model);
+        }
+        Err(ggez::GameError::CustomError(
+            "Failed to load gltf model".to_string(),
+        ))
+    }
     pub fn to_aabb(&self) -> Option<Aabb> {
         let mut minimum = Vec3::MAX;
         let mut maximum = Vec3::MIN;
@@ -29,19 +78,18 @@ impl Model {
                 minimum = minimum.min(Vec3::from_array(p.pos));
                 maximum = maximum.max(Vec3::from_array(p.pos));
             }
-            if minimum.x != std::f32::MAX
-                && minimum.y != std::f32::MAX
-                && minimum.z != std::f32::MAX
-                && maximum.x != std::f32::MIN
-                && maximum.y != std::f32::MIN
-                && maximum.z != std::f32::MIN
-            {
-                return Some(Aabb::from_min_max(minimum, maximum));
-            } else {
-                return None;
-            }
         }
-        None
+        if minimum.x != std::f32::MAX
+            && minimum.y != std::f32::MAX
+            && minimum.z != std::f32::MAX
+            && maximum.x != std::f32::MIN
+            && maximum.y != std::f32::MIN
+            && maximum.z != std::f32::MIN
+        {
+            Some(Aabb::from_min_max(minimum, maximum))
+        } else {
+            None
+        }
     }
 }
 
@@ -51,7 +99,6 @@ struct MainState {
     psx: bool,
     psx_shader: Shader,
     custom_shader: Shader,
-    rotation: f32,
 }
 
 impl MainState {
@@ -60,53 +107,10 @@ impl MainState {
         camera.camera.yaw = 0.0;
         camera.camera.pitch = 0.0;
         camera.projection.zfar = 1000.0;
-        let mut meshes = Vec::default();
-        let path = ctx.fs.resources_dir().join("tree_gun.glb");
-        println!("{:?}", path);
-        let scenes = easy_gltf::load(path).expect("Failed to load glTF");
-
-        for scene in scenes {
-            for model in scene.models {
-                if let Some(base_color_texture) = model.material().pbr.base_color_texture.clone() {
-                    let image = Image::from_pixels(
-                        ctx,
-                        base_color_texture.as_bytes(),
-                        ImageFormat::Rgba8UnormSrgb,
-                        base_color_texture.width(),
-                        base_color_texture.height(),
-                    );
-                    let vertices = model
-                        .vertices()
-                        .iter()
-                        .map(|x| {
-                            let pos = Vec3::new(x.position.x, x.position.y, x.position.z);
-                            let uv = Vec2::new(x.tex_coords.x, x.tex_coords.y);
-                            Vertex3d::new(pos, uv, Color::new(1.0, 1.0, 1.0, 0.0))
-                        })
-                        .collect();
-                    let indices = model.indices();
-                    if let Some(indices) = indices.as_ref() {
-                        let indices = indices.iter().map(|x| *x as u32).collect();
-                        let mesh = Mesh3dBuilder::new()
-                            .from_data(vertices, indices, Some(image))
-                            .build(ctx);
-                        meshes.push(mesh);
-                    }
-                }
-            }
-        }
-
-        let mut cincide_model = Model {
-            center: None,
-            rotation: Quat::IDENTITY,
-            transform: Transform3d::default(),
-            meshes,
-        };
-
-        cincide_model.center = Some(cincide_model.to_aabb().unwrap().center.into());
+        let tree_gun = Model::from_path("tree_gun.glb".into(), ctx)?;
 
         Ok(MainState {
-            models: vec![cincide_model],
+            models: vec![tree_gun],
             camera,
             custom_shader: graphics::ShaderBuilder::from_path("/fancy.wgsl")
                 .build(&ctx.gfx)
@@ -115,7 +119,6 @@ impl MainState {
                 .build(&ctx.gfx)
                 .unwrap(),
             psx: true,
-            rotation: 0.0,
         })
     }
 }
@@ -129,7 +132,11 @@ impl event::EventHandler for MainState {
         let dt = ctx.time.delta().as_secs_f32();
         let forward = Vec3::new(yaw_cos, 0.0, yaw_sin).normalize() * 15.0 * dt;
         let right = Vec3::new(-yaw_sin, 0.0, yaw_cos).normalize() * 15.0 * dt;
-        self.rotation += 2.5 * dt;
+        for model in self.models.iter_mut() {
+            let (y, _, _) = Quat::from(model.transform.rotation).to_euler(EulerRot::YZX);
+            let y = y + 2.5 * dt;
+            model.transform.rotation = Quat::from_euler(EulerRot::YXZ, y, 0.0, 0.0).into();
+        }
         // if k_ctx.is_key_pressed(KeyCode::Q) {
         //     self.meshes[0].1 += 1.0 * dt;
         // }
@@ -190,8 +197,7 @@ impl event::EventHandler for MainState {
                     mesh.clone(),
                     DrawParam3d::default()
                         .pivot(model.center.unwrap() + Vec3::from(model.transform.position))
-                        .transform(model.transform)
-                        .rotation(Quat::from_euler(EulerRot::YZX, self.rotation, 0.0, 0.0)),
+                        .transform(model.transform),
                 );
             }
         }

@@ -43,7 +43,7 @@ fn vs_main(
     );
     var out: VertexOutput;
     let in_clip = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
-    let snap_scale = 10.0;
+    let snap_scale = 5.0;
     var position = vec4(
         in_clip.x  / in_clip.w,
         in_clip.y  / in_clip.w,
@@ -77,7 +77,11 @@ var s_sampler: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let fir_col = in.vertex_color * textureSample(t_color, s_sampler, in.tex_coord);
+    let tex = textureSample(t_color, s_sampler, in.tex_coord);
+    if tex.a < 0.5 {
+        discard;
+    }
+    let fir_col = in.vertex_color * tex;
     let fog_color = vec3<f32>(0.0, 0.0, 0.0);
     let col = vec4(mix(fir_col.rgb, fog_color, in.fog), 1.0);
     return col;

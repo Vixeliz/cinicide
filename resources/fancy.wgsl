@@ -19,7 +19,7 @@ struct InstanceInput {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) tex_coord: vec2<f32>,
+    @location(0) @interpolate(linear) tex_coord: vec2<f32>,
     @location(1) color: vec4<f32>,
     @location(2) vertex_color: vec4<f32>,
 }
@@ -57,6 +57,9 @@ var s_sampler: sampler;
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let tex = textureSample(t_color, s_sampler, in.tex_coord);
+    if tex.a < 0.5 {
+        discard;
+    }
     let tex_col = mix(tex, vec4<f32>(in.color.xyz, 1.0), in.color.w) * vec4<f32>(in.vertex_color.xyz, 1.0);
     return tex_col;
 }
