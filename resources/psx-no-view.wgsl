@@ -42,8 +42,9 @@ fn vs_main(
         instance.model_matrix_3,
     );
     var out: VertexOutput;
-    let in_clip = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
-    let snap_scale = 30.0;
+    // let in_clip = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
+    let in_clip = model_matrix * vec4<f32>(model.position, 1.0);
+    let snap_scale = 100.0;
     var position = vec4(
         in_clip.x  / in_clip.w,
         in_clip.y  / in_clip.w,

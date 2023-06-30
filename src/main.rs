@@ -96,6 +96,7 @@ impl Model {
 struct MainState {
     camera: Camera3dBundle,
     models: Vec<Model>,
+    no_view_models: Vec<Model>,
     psx: bool,
     psx_shader: Shader,
     custom_shader: Shader,
@@ -107,10 +108,23 @@ impl MainState {
         camera.camera.yaw = 0.0;
         camera.camera.pitch = 0.0;
         camera.projection.zfar = 1000.0;
-        let tree_gun = Model::from_path("tree_gun.glb".into(), ctx)?;
+        let mut tree_gun = Model::from_path("tree_gun.glb".into(), ctx)?;
+        let mut cin_gun = Model::from_path("cinicide_gun.glb".into(), ctx)?;
+        cin_gun.transform = Transform3d {
+            position: Vec3::new(10.0, 5.0, -10.0).into(),
+            rotation: Quat::IDENTITY.into(),
+            scale: Vec3::splat(10.0).into(),
+        };
+        let rot = Quat::from_euler(EulerRot::YZX, 0.0_f32.to_radians(), 0.0, 0.0);
+        tree_gun.transform = Transform3d {
+            position: Vec3::new(3.0, -1.5, 0.9).into(),
+            rotation: rot.into(),
+            scale: Vec3::splat(3.0).into(),
+        };
 
         Ok(MainState {
-            models: vec![tree_gun],
+            models: vec![cin_gun],
+            no_view_models: vec![tree_gun],
             camera,
             custom_shader: graphics::ShaderBuilder::from_path("/fancy.wgsl")
                 .build(&ctx.gfx)
@@ -132,11 +146,6 @@ impl event::EventHandler for MainState {
         let dt = ctx.time.delta().as_secs_f32();
         let forward = Vec3::new(yaw_cos, 0.0, yaw_sin).normalize() * 15.0 * dt;
         let right = Vec3::new(-yaw_sin, 0.0, yaw_cos).normalize() * 15.0 * dt;
-        for model in self.models.iter_mut() {
-            let (y, _, _) = Quat::from(model.transform.rotation).to_euler(EulerRot::YZX);
-            let y = y + 2.5 * dt;
-            model.transform.rotation = Quat::from_euler(EulerRot::YXZ, y, 0.0, 0.0).into();
-        }
         // if k_ctx.is_key_pressed(KeyCode::Q) {
         //     self.meshes[0].1 += 1.0 * dt;
         // }
@@ -196,7 +205,36 @@ impl event::EventHandler for MainState {
                     ctx,
                     mesh.clone(),
                     DrawParam3d::default()
-                        .pivot(model.center.unwrap() + Vec3::from(model.transform.position))
+                        .offset(model.center.unwrap())
+                        .transform(model.transform),
+                );
+            }
+        }
+        canvas3d.finish(ctx)?;
+        let mut camera = Camera3dBundle::default();
+        camera.projection.znear = 0.002;
+        camera.projection.fovy = 70.0_f32.to_radians();
+        let canvas_image_two =
+            Image::new_canvas_image(ctx, ImageFormat::Bgra8UnormSrgb, 320, 240, 1);
+        let mut canvas3d = Canvas3d::from_image(
+            ctx,
+            &mut camera,
+            canvas_image_two.clone(),
+            Color::new(0.0, 0.0, 0.0, 0.0),
+        );
+        canvas3d.set_sampler(Sampler::nearest_clamp());
+        if self.psx {
+            canvas3d.set_shader(self.psx_shader.clone());
+        } else {
+            canvas3d.set_shader(self.custom_shader.clone());
+        }
+        for model in self.no_view_models.iter() {
+            for mesh in model.meshes.iter() {
+                canvas3d.draw(
+                    ctx,
+                    mesh.clone(),
+                    DrawParam3d::default()
+                        .offset(model.center.unwrap())
                         .transform(model.transform),
                 );
             }
@@ -211,6 +249,7 @@ impl event::EventHandler for MainState {
             ctx.gfx.drawable_size().1 / 240.0,
         ));
         canvas.draw(&canvas_image, params);
+        canvas.draw(&canvas_image_two, params);
         let dest_point1 = Vec2::new(10.0, 210.0);
         let dest_point2 = Vec2::new(10.0, 250.0);
         canvas.draw(

@@ -19,10 +19,9 @@ struct InstanceInput {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) @interpolate(linear) tex_coord: vec2<f32>,
+    @location(0) tex_coord: vec2<f32>,
     @location(1) color: vec4<f32>,
     @location(2) vertex_color: vec4<f32>,
-    @location(3) fog: f32,
 }
 
 
@@ -42,30 +41,10 @@ fn vs_main(
         instance.model_matrix_3,
     );
     var out: VertexOutput;
-    let in_clip = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
-    let snap_scale = 30.0;
-    var position = vec4(
-        in_clip.x  / in_clip.w,
-        in_clip.y  / in_clip.w,
-        in_clip.z  / in_clip.w,
-        in_clip.w
-    );
-    position = vec4(
-        floor(in_clip.x * snap_scale) / snap_scale,
-        floor(in_clip.y * snap_scale) / snap_scale,
-        in_clip.z,
-        in_clip.w
-    );
-
-    let fog_distance = vec2<f32>(25.0, 75.0);
-    let depth_vert = camera.view_proj * vec4(position);
-    let depth = abs(depth_vert.z / depth_vert.w);
-    out.clip_position = position;
     out.tex_coord = model.tex_coords;
-    out.fog = 1.0 - clamp((fog_distance.y - depth) / (fog_distance.y - fog_distance.x), 0.0, 1.0);
+    out.clip_position = model_matrix * vec4<f32>(model.position, 1.0);
     out.color = instance.color;
     out.vertex_color = model.color;
-
     return out;
 }
 
@@ -81,8 +60,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if tex.a < 0.5 {
         discard;
     }
-    let fir_col = in.vertex_color * tex;
-    let fog_color = vec3<f32>(0.0, 0.0, 0.0);
-    let col = vec4(mix(fir_col.rgb, fog_color, in.fog), 1.0);
-    return col;
+    let tex_col = mix(tex, vec4<f32>(in.color.xyz, 1.0), in.color.w) * vec4<f32>(in.vertex_color.xyz, 1.0);
+    return tex_col;
 }
