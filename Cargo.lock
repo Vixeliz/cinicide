@@ -898,19 +898,24 @@ name = "ggez"
 version = "0.9.0"
 dependencies = [
  "approx 0.5.1",
+ "base64 0.21.2",
  "bitflags 2.3.3",
  "bytemuck",
  "crevice",
  "directories",
  "gilrs",
  "glam",
+ "gltf",
  "glyph_brush",
  "image",
  "log",
  "lyon",
  "memoffset 0.9.0",
  "mint",
+ "num-traits",
+ "obj-rs",
  "ordered-float",
+ "percent-encoding",
  "pollster",
  "rodio",
  "serde",
@@ -1788,6 +1793,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.22",
+]
+
+[[package]]
+name = "obj-rs"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a502182538a65adc7e3843f820eb5a4bd3ff395017e0ba6e3ccad404e9ea1da3"
+dependencies = [
+ "num-traits",
+ "serde",
 ]
 
 [[package]]

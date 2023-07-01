@@ -2,6 +2,7 @@ use ggez::graphics::{
     Aabb, Camera3dBundle, Canvas3d, DrawParam, DrawParam3d, ImageFormat, Mesh3d, Mesh3dBuilder,
     Sampler, Transform3d, Vertex3d,
 };
+use ggez::graphics::{Drawable3d, Model};
 use ggez::graphics::{Image, Shader};
 use ggez::input::keyboard::KeyCode;
 use ggez::{
@@ -14,93 +15,46 @@ use image::EncodableLayout;
 use std::path::PathBuf;
 use std::{env, path};
 
-pub struct Model {
-    center: Option<Vec3>,
+pub struct ModelPos {
+    center: Vec3,
     transform: Transform3d,
-    meshes: Vec<Mesh3d>,
+    model: Model,
 }
-impl Model {
-    pub fn from_path(path: PathBuf, ctx: &mut Context) -> GameResult<Self> {
-        let path = ctx.fs.resources_dir().join(path);
-        let mut meshes = Vec::default();
-        if let Ok(scenes) = easy_gltf::load(path) {
-            for scene in scenes {
-                for model in scene.models {
-                    if let Some(base_color_texture) =
-                        model.material().pbr.base_color_texture.clone()
-                    {
-                        let image = Image::from_pixels(
-                            ctx,
-                            base_color_texture.as_bytes(),
-                            ImageFormat::Rgba8UnormSrgb,
-                            base_color_texture.width(),
-                            base_color_texture.height(),
-                        );
-                        let vertices = model
-                            .vertices()
-                            .iter()
-                            .map(|x| {
-                                let pos = Vec3::new(x.position.x, x.position.y, x.position.z);
-                                let uv = Vec2::new(x.tex_coords.x, x.tex_coords.y);
-                                Vertex3d::new(pos, uv, Color::new(1.0, 1.0, 1.0, 0.0))
-                            })
-                            .collect();
-                        let indices = model.indices();
-                        if let Some(indices) = indices.as_ref() {
-                            let indices = indices.iter().map(|x| *x as u32).collect();
-                            let mesh = Mesh3dBuilder::new()
-                                .from_data(vertices, indices, Some(image))
-                                .build(ctx);
-                            meshes.push(mesh);
-                        }
-                    }
-                }
-            }
-
-            let mut model = Model {
-                center: None,
-                transform: Transform3d::default(),
-                meshes,
-            };
-
-            model.center = Some(model.to_aabb().unwrap().center.into());
-            return Ok(model);
+impl ModelPos {
+    fn new(model: Model, transform: Transform3d) -> Self {
+        Self {
+            center: model.to_aabb().unwrap_or_default().center.into(),
+            model,
+            transform,
         }
-        Err(ggez::GameError::CustomError(
-            "Failed to load gltf model".to_string(),
-        ))
     }
-    pub fn to_aabb(&self) -> Option<Aabb> {
-        let mut minimum = Vec3::MAX;
-        let mut maximum = Vec3::MIN;
-        for mesh in self.meshes.iter() {
-            for p in mesh.vertices.iter() {
-                minimum = minimum.min(Vec3::from_array(p.pos));
-                maximum = maximum.max(Vec3::from_array(p.pos));
-            }
-        }
-        if minimum.x != std::f32::MAX
-            && minimum.y != std::f32::MAX
-            && minimum.z != std::f32::MAX
-            && maximum.x != std::f32::MIN
-            && maximum.y != std::f32::MIN
-            && maximum.z != std::f32::MIN
-        {
-            Some(Aabb::from_min_max(minimum, maximum))
-        } else {
-            None
-        }
+}
+
+impl Drawable3d for ModelPos {
+    fn draw(
+        &self,
+        gfx: &mut impl ggez::context::HasMut<graphics::GraphicsContext>,
+        canvas: &mut Canvas3d,
+        param: impl Into<DrawParam3d>,
+    ) {
+        canvas.draw(
+            gfx,
+            &self.model,
+            DrawParam3d::default()
+                .transform(self.transform)
+                .offset(self.center),
+        )
     }
 }
 
 struct MainState {
     camera: Camera3dBundle,
-    models: Vec<Model>,
-    no_view_models: Vec<Model>,
+    models: Vec<ModelPos>,
+    no_view_models: Vec<ModelPos>,
     psx: bool,
     psx_shader: Shader,
     custom_shader: Shader,
-    skybox: Model,
+    skybox: ModelPos,
 }
 
 impl MainState {
@@ -109,26 +63,35 @@ impl MainState {
         camera.camera.yaw = 0.0;
         camera.camera.pitch = 0.0;
         camera.projection.zfar = 1000.0;
-        let mut tree_gun = Model::from_path("tree_gun.glb".into(), ctx)?;
-        let mut cin_gun = Model::from_path("cinicide_gun.glb".into(), ctx)?;
-        let mut skybox = Model::from_path("skybox.glb".into(), ctx)?;
-        cin_gun.transform = Transform3d {
-            position: Vec3::new(10.0, 5.0, -10.0).into(),
-            rotation: Quat::IDENTITY.into(),
-            scale: Vec3::splat(10.0).into(),
-        };
         let rot = Quat::from_euler(EulerRot::YZX, 0.0_f32.to_radians(), 0.0, 0.0);
-        tree_gun.transform = Transform3d {
-            position: Vec3::new(3.0, -1.5, 0.9).into(),
-            rotation: rot.into(),
-            scale: Vec3::splat(3.0).into(),
-        };
-
-        skybox.transform = Transform3d {
-            position: Vec3::ZERO.into(),
-            rotation: Quat::IDENTITY.into(),
-            scale: Vec3::splat(100.0).into(),
-        };
+        let tree_gun = ModelPos::new(
+            Model::from_path(ctx, "/tree_gun.glb", None)?,
+            Transform3d {
+                position: Vec3::new(3.0, -1.5, 0.9).into(),
+                rotation: rot.into(),
+                scale: Vec3::splat(3.0).into(),
+            },
+        );
+        let cin_gun = ModelPos::new(
+            Model::from_path(
+                ctx,
+                "/skybox.obj",
+                Image::from_color(ctx, 1, 1, Some(Color::RED)),
+            )?,
+            Transform3d {
+                position: Vec3::new(10.0, 5.0, -10.0).into(),
+                rotation: Quat::IDENTITY.into(),
+                scale: Vec3::splat(-10.0).into(),
+            },
+        );
+        let skybox = ModelPos::new(
+            Model::from_path(ctx, "/skybox.gltf", None)?,
+            Transform3d {
+                position: Vec3::ZERO.into(),
+                rotation: Quat::IDENTITY.into(),
+                scale: Vec3::splat(100.0).into(),
+            },
+        );
 
         Ok(MainState {
             models: vec![cin_gun],
@@ -205,13 +168,7 @@ impl event::EventHandler for MainState {
         let mut canvas3d = Canvas3d::from_image(ctx, &mut sky_cam, sky_image.clone(), Color::BLACK);
         canvas3d.set_sampler(Sampler::nearest_clamp());
         canvas3d.set_shader(self.custom_shader.clone());
-        canvas3d.draw(
-            ctx,
-            self.skybox.meshes[0].clone(),
-            DrawParam3d::default()
-                .offset(self.skybox.center.unwrap())
-                .transform(self.skybox.transform),
-        );
+        canvas3d.draw(ctx, &self.skybox, DrawParam3d::default());
         canvas3d.finish(ctx)?;
         let canvas_image = Image::new_canvas_image(ctx, ImageFormat::Bgra8UnormSrgb, 320, 240, 1);
         let mut canvas3d = Canvas3d::from_image(
@@ -227,15 +184,7 @@ impl event::EventHandler for MainState {
             canvas3d.set_shader(self.custom_shader.clone());
         }
         for model in self.models.iter() {
-            for mesh in model.meshes.iter() {
-                canvas3d.draw(
-                    ctx,
-                    mesh.clone(),
-                    DrawParam3d::default()
-                        .offset(model.center.unwrap())
-                        .transform(model.transform),
-                );
-            }
+            canvas3d.draw(ctx, model, DrawParam3d::default());
         }
         canvas3d.finish(ctx)?;
         let mut camera = Camera3dBundle::default();
@@ -256,15 +205,7 @@ impl event::EventHandler for MainState {
             canvas3d.set_shader(self.custom_shader.clone());
         }
         for model in self.no_view_models.iter() {
-            for mesh in model.meshes.iter() {
-                canvas3d.draw(
-                    ctx,
-                    mesh.clone(),
-                    DrawParam3d::default()
-                        .offset(model.center.unwrap())
-                        .transform(model.transform),
-                );
-            }
+            canvas3d.draw(ctx, model, DrawParam3d::default());
         }
         canvas3d.finish(ctx)?;
         let mut canvas = graphics::Canvas::from_frame(ctx, None);
