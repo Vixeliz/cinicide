@@ -6,11 +6,20 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# ggez = { git = "https://github.com/vixeliz/ggez", branch = "devel" }
-ggez = { path = "../ggez" }
+ggez = { git = "https://github.com/ggez/ggez", branch = "devel" }
+# ggez = { path = "../ggez" }
 mint = "0.5.9"
 ahash = "0.8.3"
-tobj = "4.0.0"
-gltf = "1.2.0"
-easy-gltf = "1.0.0"
 image = "0.24.6"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+debug = true # Remember to change this
+opt-level = 3
+lto = true #Change this to be per platform windows doesn't seem to like it
+
