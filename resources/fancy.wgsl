@@ -43,7 +43,9 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var tex = textureSample(t, s, in.tex_coord);
+    let tex = textureSample(t, s, in.tex_coord);
+    if tex.a < 0.1 {
+        discard;
+    }
     return tex;
-    // return mix(tex, vec4<f32>(in.color.xyz, 1.0), in.color.w) * in.vertex_color;
 }

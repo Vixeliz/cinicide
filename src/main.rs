@@ -1,5 +1,5 @@
 use ggez::conf::NumSamples;
-use ggez::graphics::Model;
+use ggez::graphics::{BlendMode, Model};
 use ggez::graphics::{
     Camera3d, Canvas3d, DrawParam, DrawParam3d, ImageFormat, Sampler, Transform3d,
 };
@@ -11,6 +11,8 @@ use ggez::{
     graphics::{self, Color},
     Context, GameResult,
 };
+use log::LevelFilter;
+use simplelog::{ColorChoice, TermLogger, TerminalMode};
 use std::{env, path};
 
 pub struct ModelPos {
@@ -67,12 +69,12 @@ impl MainState {
                 pivot: None,
             },
         );
-        let cin_gun = ModelPos::new(
-            Model::from_path(ctx, "/cinicide_gun.glb", None)?,
+        let player = ModelPos::new(
+            Model::from_path(ctx, "/player.glb", None)?,
             Transform3d::Values {
                 pos: Vec3::new(10.0, 5.0, -10.0).into(),
                 rotation: Quat::IDENTITY.into(),
-                scale: Vec3::splat(10.0).into(),
+                scale: Vec3::splat(3.0).into(),
                 offset: None,
                 pivot: None,
             },
@@ -91,7 +93,7 @@ impl MainState {
         ggez::input::mouse::set_cursor_grabbed(ctx, true)?;
 
         Ok(MainState {
-            models: vec![cin_gun],
+            models: vec![player],
             no_view_models: vec![tree_gun],
             skybox,
             camera,
@@ -107,6 +109,11 @@ impl MainState {
 }
 
 impl event::EventHandler for MainState {
+    fn resize_event(&mut self, _: &mut Context, width: f32, height: f32) -> GameResult {
+        self.camera.projection.resize(width as u32, height as u32);
+        Ok(())
+    }
+
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         // set_cursor_grabbed(ctx, true)?;
         let k_ctx = &ctx.keyboard.clone();
@@ -174,6 +181,7 @@ impl event::EventHandler for MainState {
         canvas3d.draw(&self.skybox, DrawParam3d::default());
         canvas3d.finish(ctx)?;
         let canvas_image = Image::new_canvas_image(ctx, ImageFormat::Bgra8UnormSrgb, 320, 240, 1);
+        // let mut canvas3d = Canvas3d::from_frame(ctx, Color::BLACK);
         let mut canvas3d =
             Canvas3d::from_image(ctx, canvas_image.clone(), Color::new(0.0, 0.0, 0.0, 0.0));
         canvas3d.set_shader(&self.custom_shader);
@@ -286,6 +294,13 @@ pub fn main() -> GameResult {
             srgb: true,
         })
         .add_resource_path(resource_dir);
+    // TermLogger::init(
+    //     LevelFilter::Trace,
+    //     simplelog::Config::default(),
+    //     TerminalMode::Stdout,
+    //     ColorChoice::Auto,
+    // )
+    // .unwrap();
 
     let (mut ctx, events_loop) = cb.build()?;
     let state = MainState::new(&mut ctx)?;

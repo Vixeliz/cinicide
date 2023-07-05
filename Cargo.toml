@@ -6,11 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ggez = { git = "https://github.com/ggez/ggez", branch = "devel" }
-# ggez = { path = "../ggez" }
+# ggez = { git = "https://github.com/ggez/ggez", branch = "devel" }
+ggez = { path = "../ggez" }
 mint = "0.5.9"
 ahash = "0.8.3"
 image = "0.24.6"
+log = "0.4.19"
+simplelog = "0.12.1"
 
 [profile.dev]
 opt-level = 1
