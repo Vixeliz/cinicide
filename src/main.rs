@@ -1,5 +1,5 @@
 use ggez::conf::NumSamples;
-use ggez::graphics::{BlendMode, Model};
+use ggez::graphics::Model;
 use ggez::graphics::{
     Camera3d, Canvas3d, DrawParam, DrawParam3d, ImageFormat, Sampler, Transform3d,
 };
@@ -11,8 +11,7 @@ use ggez::{
     graphics::{self, Color},
     Context, GameResult,
 };
-use log::LevelFilter;
-use simplelog::{ColorChoice, TermLogger, TerminalMode};
+
 use std::{env, path};
 
 pub struct ModelPos {
@@ -171,27 +170,25 @@ impl event::EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        let sky_image = Image::new_canvas_image(ctx, ImageFormat::Bgra8UnormSrgb, 320, 240, 1);
-        let mut sky_cam = self.camera.clone();
-        sky_cam.transform = sky_cam.transform.position(Vec3::ZERO);
-        let mut canvas3d = Canvas3d::from_image(ctx, sky_image.clone(), Color::BLACK);
-        canvas3d.set_projection(sky_cam.to_matrix());
-        canvas3d.set_sampler(Sampler::nearest_clamp());
-        canvas3d.set_shader(&self.custom_shader);
-        canvas3d.draw(&self.skybox, DrawParam3d::default());
-        canvas3d.finish(ctx)?;
         let canvas_image = Image::new_canvas_image(ctx, ImageFormat::Bgra8UnormSrgb, 320, 240, 1);
-        // let mut canvas3d = Canvas3d::from_frame(ctx, Color::BLACK);
+        // Create canvas and set settings
         let mut canvas3d =
             Canvas3d::from_image(ctx, canvas_image.clone(), Color::new(0.0, 0.0, 0.0, 0.0));
-        canvas3d.set_shader(&self.custom_shader);
-        canvas3d.set_projection(self.camera.to_matrix());
-        canvas3d.set_sampler(Sampler::nearest_clamp());
         if self.psx {
             canvas3d.set_shader(&self.psx_shader);
         } else {
             canvas3d.set_shader(&self.custom_shader);
         }
+        canvas3d.set_sampler(Sampler::nearest_clamp());
+
+        // Draw sky
+        let mut sky_cam = self.camera.clone();
+        sky_cam.transform = sky_cam.transform.position(Vec3::ZERO);
+        canvas3d.set_projection(sky_cam.to_matrix());
+        canvas3d.draw(&self.skybox, DrawParam3d::default());
+
+        // Draw world
+        canvas3d.set_projection(self.camera.to_matrix());
         for model in self.no_view_models.iter() {
             canvas3d.draw(
                 model,
@@ -201,28 +198,18 @@ impl event::EventHandler for MainState {
         for model in self.models.iter() {
             canvas3d.draw(model, DrawParam3d::default());
         }
-        canvas3d.finish(ctx)?;
+
+        // Draw gun
         let mut camera = Camera3d::default();
-        camera.projection.znear = 0.002;
-        camera.projection.fovy = 70.0_f32.to_radians();
-        let canvas_image_two =
-            Image::new_canvas_image(ctx, ImageFormat::Bgra8UnormSrgb, 320, 240, 1);
-        let mut canvas3d = Canvas3d::from_image(
-            ctx,
-            canvas_image_two.clone(),
-            Color::new(0.0, 0.0, 0.0, 0.0),
-        );
+        camera.projection = self.camera.projection;
         canvas3d.set_projection(camera.to_matrix());
-        canvas3d.set_sampler(Sampler::nearest_clamp());
-        if self.psx {
-            canvas3d.set_shader(&self.psx_shader);
-        } else {
-            canvas3d.set_shader(&self.custom_shader);
-        }
         for model in self.no_view_models.iter() {
             canvas3d.draw(model, DrawParam3d::default());
         }
+
+        // Finish
         canvas3d.finish(ctx)?;
+
         let mut canvas = graphics::Canvas::from_frame(ctx, None);
 
         // Do ggez drawing
@@ -233,9 +220,7 @@ impl event::EventHandler for MainState {
                 ctx.gfx.drawable_size().0 / 320.0,
                 ctx.gfx.drawable_size().1 / 240.0,
             ));
-        canvas.draw(&sky_image, params);
         canvas.draw(&canvas_image, params);
-        canvas.draw(&canvas_image_two, params);
         let dest_point1 = Vec2::new(10.0, 210.0);
         let dest_center = Vec2::new(
             ctx.gfx.drawable_size().0 / 2.0,
