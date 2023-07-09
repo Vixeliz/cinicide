@@ -36,7 +36,7 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     let in_clip = uniforms.camera_transform * uniforms.model_transform * vec4<f32>(model.position, 1.0);
-    let snap_scale = 5.0;
+    let snap_scale = 15.0;
     var position = vec4(
         in_clip.x  / in_clip.w,
         in_clip.y  / in_clip.w,
@@ -50,12 +50,13 @@ fn vs_main(
         in_clip.w
     );
 
-    let fog_distance = vec2<f32>(25.0, 75.0);
-    let depth_vert = uniforms.camera_transform * vec4(position);
-    let depth = abs(depth_vert.z / depth_vert.w);
+    // let fog_distance = vec2<f32>(25.0, 75.0);
+    // let depth_vert = uniforms.camera_transform * vec4(position);
+    // let depth = abs(depth_vert.z / depth_vert.w);
     out.clip_position = position;
     out.tex_coord = model.tex_coords;
-    out.fog = 1.0 - clamp((fog_distance.y - depth) / (fog_distance.y - fog_distance.x), 0.0, 1.0);
+    // out.fog = 1.0 - clamp((fog_distance.y - depth) / (fog_distance.y - fog_distance.x), 0.0, 1.0);
+    out.fog = 0.0;
     out.color = uniforms.color;
     out.vertex_color = model.color;
 
@@ -65,11 +66,11 @@ fn vs_main(
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let tex = textureSample(t, s, in.tex_coord);
-    if tex.a < 0.5 {
+    if tex.a < 0.1 {
         discard;
     }
     let fir_col = in.vertex_color * tex;
     let fog_color = vec3<f32>(1.0, 1.0, 1.0);
-    let col = vec4(mix(fir_col.rgb, fog_color, in.fog), 1.0);
+    let col = vec4(mix(fir_col.rgb, fog_color, in.fog), tex.a);
     return col;
 }

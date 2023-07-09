@@ -28,7 +28,6 @@ impl ggez::graphics::Drawable3d for ModelPos {
     fn draw(&self, canvas: &mut Canvas3d, _: impl Into<DrawParam3d>) {
         canvas.draw(
             &self.model,
-            // DrawParam3d::default()
             DrawParam3d::default()
                 .transform(self.transform)
                 .offset(self.model.to_aabb().unwrap_or_default().center),
@@ -44,6 +43,8 @@ struct MainState {
     psx_shader: Shader,
     custom_shader: Shader,
     skybox: ModelPos,
+    crosshair: Image,
+    psx_canvas: Image,
 }
 
 impl MainState {
@@ -90,6 +91,8 @@ impl MainState {
         );
         ggez::input::mouse::set_cursor_hidden(ctx, true);
         ggez::input::mouse::set_cursor_grabbed(ctx, true)?;
+        let crosshair = Image::from_path(ctx, "/crosshair.png")?;
+        let psx_canvas = Image::new_canvas_image(ctx, ImageFormat::Bgra8UnormSrgb, 320, 240, 1);
 
         Ok(MainState {
             models: vec![player],
@@ -103,6 +106,8 @@ impl MainState {
                 .build(&ctx.gfx)
                 .unwrap(),
             psx: true,
+            crosshair,
+            psx_canvas,
         })
     }
 }
@@ -120,12 +125,6 @@ impl event::EventHandler for MainState {
         let dt = ctx.time.delta().as_secs_f32();
         let forward = Vec3::new(yaw_cos, 0.0, yaw_sin).normalize() * 15.0 * dt;
         let right = Vec3::new(-yaw_sin, 0.0, yaw_cos).normalize() * 15.0 * dt;
-        // if k_ctx.is_key_pressed(KeyCode::Q) {
-        //     self.meshes[0].1 += 1.0 * dt;
-        // }
-        // if k_ctx.is_key_pressed(KeyCode::E) {
-        //     self.meshes[0].1 -= 1.0 * dt;
-        // }
         if k_ctx.is_key_pressed(KeyCode::Space) {
             self.camera.transform.position.y += 10.0 * dt;
         }
@@ -170,10 +169,10 @@ impl event::EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        let canvas_image = Image::new_canvas_image(ctx, ImageFormat::Bgra8UnormSrgb, 320, 240, 1);
         // Create canvas and set settings
+        // let mut canvas3d = Canvas3d::from_frame(ctx, Color::new(0.0, 0.0, 0.0, 0.0));
         let mut canvas3d =
-            Canvas3d::from_image(ctx, canvas_image.clone(), Color::new(0.0, 0.0, 0.0, 0.0));
+            Canvas3d::from_image(ctx, self.psx_canvas.clone(), Color::new(0.0, 0.0, 0.0, 0.0));
         if self.psx {
             canvas3d.set_shader(&self.psx_shader);
         } else {
@@ -189,12 +188,14 @@ impl event::EventHandler for MainState {
 
         // Draw world
         canvas3d.set_projection(self.camera.to_matrix());
+
         for model in self.no_view_models.iter() {
             canvas3d.draw(
                 model,
                 DrawParam3d::default().pivot(model.model.to_aabb().unwrap().center),
             );
         }
+
         for model in self.models.iter() {
             canvas3d.draw(model, DrawParam3d::default());
         }
@@ -220,16 +221,15 @@ impl event::EventHandler for MainState {
                 ctx.gfx.drawable_size().0 / 320.0,
                 ctx.gfx.drawable_size().1 / 240.0,
             ));
-        canvas.draw(&canvas_image, params);
+        canvas.draw(&self.psx_canvas, params);
         let dest_point1 = Vec2::new(10.0, 210.0);
         let dest_center = Vec2::new(
             ctx.gfx.drawable_size().0 / 2.0,
             ctx.gfx.drawable_size().1 / 2.0,
         );
         let dest_point2 = Vec2::new(10.0, 250.0);
-        let crosshair = Image::from_path(ctx, "/crosshair.png")?;
         canvas.draw(
-            &crosshair,
+            &self.crosshair,
             DrawParam::default()
                 // .offset(Vec2::new(
                 //     crosshair.width() as f32 / 2.0,
@@ -237,22 +237,22 @@ impl event::EventHandler for MainState {
                 // ))
                 .dest(dest_center), // .scale(Vec2::splat(10.0)),
         );
-        canvas.draw(
-            &graphics::Text::new(
-                "
-                WASD: Move
-                Arrow Keys: Look
-                K: Toggle default shader and custom shader
-                C/Space: Up and Down
-                ",
-            ),
-            dest_point2,
-        );
+        // canvas.draw(
+        //     &graphics::Text::new(
+        //         "
+        //         WASD: Move
+        //         Arrow Keys: Look
+        //         K: Toggle default shader and custom shader
+        //         C/Space: Up and Down
+        //         ",
+        //     ),
+        //     dest_point2,
+        // );
 
-        canvas.draw(
-            &graphics::Text::new(format!("{}", ctx.time.fps())),
-            dest_point1,
-        );
+        // canvas.draw(
+        //     &graphics::Text::new(format!("{}", ctx.time.fps())),
+        //     dest_point1,
+        // );
 
         canvas.finish(ctx)?;
 
@@ -279,13 +279,6 @@ pub fn main() -> GameResult {
             srgb: true,
         })
         .add_resource_path(resource_dir);
-    // TermLogger::init(
-    //     LevelFilter::Trace,
-    //     simplelog::Config::default(),
-    //     TerminalMode::Stdout,
-    //     ColorChoice::Auto,
-    // )
-    // .unwrap();
 
     let (mut ctx, events_loop) = cb.build()?;
     let state = MainState::new(&mut ctx)?;
