@@ -10,15 +10,15 @@ var t: texture_2d<f32>;
 @group(1) @binding(1)
 var s: sampler;
 
-const RES = (vec2<f32>(320.0,160.0));
+const RES = (vec2<f32>(120.0,160.0)); // Controls the crt 'resolution'
 
-const HARD_SCAN  = -8.0;
+const HARD_SCAN  = -12.0; // How hard the scan lines are closer to 0.0 equals softer
 
-const HARD_PIX = -3.0;
+const HARD_PIX = -3.0; // How hard pixels are similiar to above
 
-const WRP = vec2<f32>(0.03125, 0.04166666666);
-const MASK_DARK = 0.5;
-const MASK_LIGHT = 1.5;
+const WRP = vec2<f32>(0.03125, 0.04166666666); // The amount of warping
+const MASK_DARK = 1.0; // The mask darkness level
+const MASK_LIGHT = 1.5; // Ditto but lightness
 
 fn to_linear(c: f32) -> f32 {
     if c <= 0.04045 {
@@ -36,7 +36,7 @@ fn to_srgb(c: f32) -> f32 {
     if c < 0.0031308 {
         return c * 12.92;
     } else {
-        return 1.055 * pow(c, 0.41666) - 0.55;
+        return 1.055 * pow(c, 0.41666) - 0.055;
     }
 }
 

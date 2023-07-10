@@ -243,22 +243,22 @@ impl event::EventHandler for MainState {
                 // ))
                 .dest(dest_center), // .scale(Vec2::splat(10.0)),
         );
-        // canvas.draw(
-        //     &graphics::Text::new(
-        //         "
-        //         WASD: Move
-        //         Arrow Keys: Look
-        //         K: Toggle default shader and custom shader
-        //         C/Space: Up and Down
-        //         ",
-        //     ),
-        //     dest_point2,
-        // );
+        canvas.draw(
+            &graphics::Text::new(
+                "
+                WASD: Move
+                Arrow Keys: Look
+                K: Toggle default shader and custom shader
+                C/Space: Up and Down
+                ",
+            ),
+            dest_point2,
+        );
 
-        // canvas.draw(
-        //     &graphics::Text::new(format!("{}", ctx.time.fps())),
-        //     dest_point1,
-        // );
+        canvas.draw(
+            &graphics::Text::new(format!("{}", ctx.time.fps())),
+            dest_point1,
+        );
 
         canvas.finish(ctx)?;
 
