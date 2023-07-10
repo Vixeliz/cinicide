@@ -45,6 +45,7 @@ struct MainState {
     skybox: ModelPos,
     crosshair: Image,
     psx_canvas: Image,
+    crt_shader: Shader,
 }
 
 impl MainState {
@@ -103,6 +104,10 @@ impl MainState {
                 .build(&ctx.gfx)
                 .unwrap(),
             psx_shader: graphics::ShaderBuilder::from_path("/psx.wgsl")
+                .build(&ctx.gfx)
+                .unwrap(),
+            crt_shader: graphics::ShaderBuilder::new()
+                .fragment_path("/crt.wgsl")
                 .build(&ctx.gfx)
                 .unwrap(),
             psx: true,
@@ -215,6 +220,7 @@ impl event::EventHandler for MainState {
 
         // Do ggez drawing
         canvas.set_sampler(Sampler::nearest_clamp());
+        canvas.set_shader(&self.crt_shader);
         let params = DrawParam::default()
             .dest(Vec2::new(0.0, 0.0))
             .scale(Vec2::new(
