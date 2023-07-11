@@ -14,11 +14,12 @@ const RES = (vec2<f32>(120.0,160.0)); // Controls the crt 'resolution'
 
 const HARD_SCAN  = -12.0; // How hard the scan lines are closer to 0.0 equals softer
 
-const HARD_PIX = -3.0; // How hard pixels are similiar to above
+const HARD_PIX = -10.0; // How hard pixels are similiar to above
 
 const WRP = vec2<f32>(0.03125, 0.04166666666); // The amount of warping
 const MASK_DARK = 1.0; // The mask darkness level
 const MASK_LIGHT = 1.5; // Ditto but lightness
+const OFFSET = 0.0005;
 
 fn to_linear(c: f32) -> f32 {
     if c <= 0.04045 {
@@ -134,9 +135,16 @@ fn mask(pos: vec2<f32>) -> vec3<f32>{
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var frag_color = textureSample(t, s, in.uv);
+    var frag_color = vec4<f32>(
+        textureSample(t, s, in.uv + vec2<f32>(OFFSET, -OFFSET)).r,
+        textureSample(t, s, in.uv + vec2<f32>(-OFFSET, 0.0)).g,
+        textureSample(t, s, in.uv + vec2<f32>(0.0, OFFSET)).b,
+        1.0
+    );
     let pos=warp(in.uv.xy);
     frag_color = vec4<f32>(tri(pos, frag_color.rgb)*mask(in.uv.xy), 1.0);
     frag_color = vec4<f32>(to_srgb_vec(frag_color.rgb), 1.0);
+
+    // Sample each color channel with an arbitrary shift
     return frag_color;
 }

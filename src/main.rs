@@ -40,6 +40,7 @@ struct MainState {
     models: Vec<ModelPos>,
     no_view_models: Vec<ModelPos>,
     psx: bool,
+    crt: bool,
     psx_shader: Shader,
     custom_shader: Shader,
     skybox: ModelPos,
@@ -111,6 +112,7 @@ impl MainState {
                 .build(&ctx.gfx)
                 .unwrap(),
             psx: true,
+            crt: true,
             crosshair,
             psx_canvas,
         })
@@ -141,6 +143,9 @@ impl event::EventHandler for MainState {
         }
         if k_ctx.is_key_just_pressed(KeyCode::K) {
             self.psx = !self.psx;
+        }
+        if k_ctx.is_key_just_pressed(KeyCode::L) {
+            self.crt = !self.crt;
         }
         if k_ctx.is_key_pressed(KeyCode::S) {
             self.camera.transform = self.camera.transform.translate(-forward);
@@ -175,9 +180,11 @@ impl event::EventHandler for MainState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         // Create canvas and set settings
-        // let mut canvas3d = Canvas3d::from_frame(ctx, Color::new(0.0, 0.0, 0.0, 0.0));
-        let mut canvas3d =
-            Canvas3d::from_image(ctx, self.psx_canvas.clone(), Color::new(0.0, 0.0, 0.0, 0.0));
+        let mut canvas3d = if self.psx {
+            Canvas3d::from_image(ctx, self.psx_canvas.clone(), Color::new(0.0, 0.0, 0.0, 1.0))
+        } else {
+            Canvas3d::from_frame(ctx, Color::new(0.0, 0.0, 0.0, 1.0))
+        };
         if self.psx {
             canvas3d.set_shader(&self.psx_shader);
         } else {
@@ -220,14 +227,18 @@ impl event::EventHandler for MainState {
 
         // Do ggez drawing
         canvas.set_sampler(Sampler::nearest_clamp());
-        canvas.set_shader(&self.crt_shader);
+        if self.crt {
+            canvas.set_shader(&self.crt_shader);
+        }
         let params = DrawParam::default()
             .dest(Vec2::new(0.0, 0.0))
             .scale(Vec2::new(
                 ctx.gfx.drawable_size().0 / 320.0,
                 ctx.gfx.drawable_size().1 / 240.0,
             ));
-        canvas.draw(&self.psx_canvas, params);
+        if self.psx {
+            canvas.draw(&self.psx_canvas, params);
+        }
         let dest_point1 = Vec2::new(10.0, 210.0);
         let dest_center = Vec2::new(
             ctx.gfx.drawable_size().0 / 2.0,
