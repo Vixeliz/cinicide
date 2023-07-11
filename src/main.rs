@@ -1,9 +1,9 @@
 use ggez::conf::NumSamples;
-use ggez::graphics::Model;
 use ggez::graphics::{
     Camera3d, Canvas3d, DrawParam, DrawParam3d, ImageFormat, Sampler, Transform3d,
 };
 use ggez::graphics::{Image, Shader};
+use ggez::graphics::{Model, ScreenImage};
 use ggez::input::keyboard::KeyCode;
 use ggez::{
     event,
@@ -46,6 +46,7 @@ struct MainState {
     skybox: ModelPos,
     crosshair: Image,
     psx_canvas: Image,
+    screen_canvas: ScreenImage,
     crt_shader: Shader,
 }
 
@@ -95,11 +96,13 @@ impl MainState {
         ggez::input::mouse::set_cursor_grabbed(ctx, true)?;
         let crosshair = Image::from_path(ctx, "/crosshair.png")?;
         let psx_canvas = Image::new_canvas_image(ctx, ImageFormat::Bgra8UnormSrgb, 320, 240, 1);
+        let screen_canvas = ScreenImage::new(ctx, ImageFormat::Bgra8UnormSrgb, 1.0, 1.0, 1);
 
         Ok(MainState {
             models: vec![player],
             no_view_models: vec![tree_gun],
             skybox,
+            screen_canvas,
             camera,
             custom_shader: graphics::ShaderBuilder::from_path("/fancy.wgsl")
                 .build(&ctx.gfx)
@@ -183,7 +186,12 @@ impl event::EventHandler for MainState {
         let mut canvas3d = if self.psx {
             Canvas3d::from_image(ctx, self.psx_canvas.clone(), Color::new(0.0, 0.0, 0.0, 1.0))
         } else {
-            Canvas3d::from_frame(ctx, Color::new(0.0, 0.0, 0.0, 1.0))
+            // Canvas3d::from_image(ctx, self.psx_canvas.clone(), Color::new(0.0, 0.0, 0.0, 1.0))
+            Canvas3d::from_image(
+                ctx,
+                self.screen_canvas.image(ctx).clone(),
+                Color::new(0.0, 0.0, 0.0, 1.0),
+            )
         };
         if self.psx {
             canvas3d.set_shader(&self.psx_shader);
@@ -238,6 +246,8 @@ impl event::EventHandler for MainState {
             ));
         if self.psx {
             canvas.draw(&self.psx_canvas, params);
+        } else {
+            canvas.draw(&self.screen_canvas.image(ctx), DrawParam::default());
         }
         let dest_point1 = Vec2::new(10.0, 210.0);
         let dest_center = Vec2::new(
